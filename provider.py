@@ -1,9 +1,14 @@
+from pathlib import Path
+
 from qgis.core import QgsProcessingProvider
+from qgis.PyQt.QtGui import QIcon
 
 from raster_caster_plugin.algorithms.cast_raster_algorithm import CastRasterAlgorithm
 from raster_caster_plugin.algorithms.generate_geopackage_algorithm import (
     GenerateGeopackageAlgorithm,
 )
+
+ICON_PATH = Path(__file__).parent / "icon_algorithm.svg"
 
 
 class RasterCasterProvider(QgsProcessingProvider):
@@ -16,6 +21,9 @@ class RasterCasterProvider(QgsProcessingProvider):
 
     def longName(self) -> str:
         return "Raster Caster"
+
+    def icon(self) -> QIcon:
+        return QIcon(str(ICON_PATH))
 
     def loadAlgorithms(self) -> None:
         self.addAlgorithm(GenerateGeopackageAlgorithm())

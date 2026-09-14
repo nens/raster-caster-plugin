@@ -1,4 +1,5 @@
 import math
+from pathlib import Path
 from typing import Any
 
 from osgeo import gdal, ogr
@@ -11,8 +12,11 @@ from qgis.core import (
     QgsProcessingParameterRasterDestination,
     QgsProcessingParameterRasterLayer,
 )
+from qgis.PyQt.QtGui import QIcon
 
 from .casting import apply_constant, apply_tin
+
+ICON_PATH = Path(__file__).parent.parent / "icon_algorithm.svg"
 
 
 class CastRasterAlgorithm(QgsProcessingAlgorithm):
@@ -30,14 +34,23 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
     def displayName(self) -> str:
         return "Cast Raster"
 
-    def group(self) -> str:
-        return "Analysis"
-
-    def groupId(self) -> str:
-        return "analysis"
+    def icon(self) -> QIcon:
+        return QIcon(str(ICON_PATH))
 
     def shortHelpString(self) -> str:
-        return "Cast a raster from a Raster Caster GeoPackage."
+        return (
+            "Casts elevation values onto a new raster using the 'surface' and "
+            "'elevation_point' layers of a Raster Caster GeoPackage. Surfaces with "
+            "definition_type 'constant' are burned in with their 'param_1' value; "
+            "surfaces with 'tin' are interpolated from the elevation points they "
+            "contain. The output extent follows the extent of the surface layer.\n\n"
+            "Parameters:\n"
+            "- Input GeoPackage: a GeoPackage created by 'Generate GeoPackage'.\n"
+            "- Input Raster: optional; its pixel size is used for the output.\n"
+            "- Pixel Size: output resolution, required when no input raster is given.\n"
+            "- Snapping distance: search buffer around a TIN surface for elevation "
+            "points that lie just outside it."
+        )
 
     def createInstance(self) -> "CastRasterAlgorithm":
         return CastRasterAlgorithm()
@@ -73,7 +86,7 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 "Snapping distance",
                 type=QgsProcessingParameterNumber.Type.Double,
                 minValue=0.0,
-                defaultValue=10.0,
+                defaultValue=3.0,
             )
         )
         self.addParameter(
