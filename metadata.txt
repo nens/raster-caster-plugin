@@ -17,7 +17,7 @@ changelog=https://github.com/nens/raster_caster_plugin/CHANGES.rst
 tags=analysis, modelling, raster, dem
 homepage=https://github.com/nens/raster_caster_plugin
 category=Plugins
-icon=icons/rana_blue_on_transparent.svg
+icon=icon.svg
 experimental=True
 hasProcessingProvider=yes
 

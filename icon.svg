@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="Raster Caster">
+  <defs>
+    <linearGradient id="melt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffe066"/>
+      <stop offset="0.55" stop-color="#ff9f1c"/>
+      <stop offset="1" stop-color="#e63946"/>
+    </linearGradient>
+    <linearGradient id="steel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6ea3cd"/>
+      <stop offset="1" stop-color="#333c46"/>
+    </linearGradient>
+  </defs>
+
+  <!-- overhead crane rail and hanger -->
+  <rect x="4" y="3" width="56" height="4" rx="2" fill="url(#steel)"/>
+  <rect x="20.5" y="7" width="3" height="5" fill="#333c46"/>
+
+  <!-- tilted foundry ladle pouring molten material -->
+  <g transform="rotate(-32 22 20)">
+    <path d="M13 13h18l-2.5 14a6.5 6.5 0 0 1-13 0z" fill="url(#steel)"/>
+    <rect x="11" y="10.5" width="22" height="3" rx="1.5" fill="#9cc2e0"/>
+    <path d="M15.5 15h13l-1.8 9.5a4.8 4.8 0 0 1-9.4 0z" fill="url(#melt)"/>
+  </g>
+
+  <!-- pour stream -->
+  <path d="M30.2 22c1.6 5 1.3 9.2.7 13.2-.4 2.6-.6 4.4-.6 5.8h3.2c0-1.4.2-3.2.6-5.8.7-4.5.9-8.9-1-14z" fill="url(#melt)"/>
+
+  <!-- mould filling as a raster grid -->
+  <rect x="10" y="41" width="44" height="18" rx="2" fill="#333c46"/>
+  <rect x="12" y="43" width="10" height="6" fill="#43566a"/>
+  <rect x="23" y="43" width="10" height="6" fill="#ff9f1c"/>
+  <rect x="34" y="43" width="10" height="6" fill="#6ea3cd"/>
+  <rect x="45" y="43" width="7" height="6" fill="#4f7ba6"/>
+  <rect x="12" y="50" width="10" height="7" fill="#6ea3cd"/>
+  <rect x="23" y="50" width="10" height="7" fill="#c6dcee"/>
+  <rect x="34" y="50" width="10" height="7" fill="#9cc2e0"/>
+  <rect x="45" y="50" width="7" height="7" fill="#6ea3cd"/>
+  <rect x="10" y="41" width="44" height="18" rx="2" fill="none" stroke="#333c46" stroke-width="2"/>
+</svg>
