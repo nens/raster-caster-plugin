@@ -11,7 +11,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtGui import QIcon
 
-ICON_PATH = Path(__file__).parent.parent / "icon_algorithm.svg"
+ICON_PATH = Path(__file__).parent.parent / "icon.svg"
 STYLING_DIR = Path(__file__).parent.parent / "styling"
 
 

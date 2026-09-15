@@ -16,7 +16,7 @@ from qgis.PyQt.QtGui import QIcon
 
 from .casting import apply_constant, apply_tin
 
-ICON_PATH = Path(__file__).parent.parent / "icon_algorithm.svg"
+ICON_PATH = Path(__file__).parent.parent / "icon.svg"
 
 
 class CastRasterAlgorithm(QgsProcessingAlgorithm):

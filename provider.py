@@ -8,7 +8,7 @@ from raster_caster_plugin.algorithms.generate_geopackage_algorithm import (
     GenerateGeopackageAlgorithm,
 )
 
-ICON_PATH = Path(__file__).parent / "icon_algorithm.svg"
+ICON_PATH = Path(__file__).parent / "icon.svg"
 
 
 class RasterCasterProvider(QgsProcessingProvider):
