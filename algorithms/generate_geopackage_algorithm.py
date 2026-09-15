@@ -117,8 +117,9 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             context.setLayersToLoadOnCompletion(layers_to_load)
 
         for name, style_path in style_files.items():
+            display_name = name.replace("_", " ")
             uri = f"{output_path}|layername={name}"
-            layer = QgsVectorLayer(uri, name, "ogr")
+            layer = QgsVectorLayer(uri, display_name, "ogr")
             layer.loadNamedStyle(str(style_path))
             # persist the style in the GeoPackage's layer_styles table
             error_message = layer.saveStyleToDatabase(name, "", True, "")
@@ -131,7 +132,9 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             context.temporaryLayerStore().addMapLayer(layer)
             context.addLayerToLoadOnCompletion(
                 layer.id(),
-                QgsProcessingContext.LayerDetails(name, destination_project, name),
+                QgsProcessingContext.LayerDetails(
+                    display_name, destination_project, name
+                ),
             )
 
         return {self.OUTPUT: output_path}
