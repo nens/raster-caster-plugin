@@ -44,12 +44,12 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         return (
             "Creates an empty Raster Caster GeoPackage in the selected CRS "
             "(EPSG:28992 by default) and loads its layers into the project.\n\n"
-            "Layers:\n"
+            "Layers:\n\n"
             "- surface (Polygon): the areas to cast. Set 'definition_type' to "
             "'constant' or 'tin'. For 'constant', 'param_1' holds the elevation "
             "value; for 'tin' the elevation is interpolated from the elevation "
             "points inside the surface.\n"
-            "- elevation_point (PointZ): supporting points for TIN surfaces. The "
+            "- elevation point (PointZ): supporting points for TIN surfaces. The "
             "'elevation' attribute is used, not the geometry Z value.\n\n"
             "Fill these layers, then run 'Cast' to produce the raster."
         )
