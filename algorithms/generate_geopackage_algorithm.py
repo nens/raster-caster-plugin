@@ -4,12 +4,14 @@ from typing import Any
 from osgeo import ogr, osr
 from qgis.core import (
     QgsCoordinateReferenceSystem,
+    QgsProcessing,
     QgsProcessingAlgorithm,
     QgsProcessingContext,
     QgsProcessingException,
     QgsProcessingFeedback,
+    QgsProcessingOutputLayerDefinition,
     QgsProcessingParameterCrs,
-    QgsProcessingParameterFileDestination,
+    QgsProcessingParameterVectorDestination,
     QgsVectorLayer,
 )
 from qgis.PyQt.QtGui import QIcon
@@ -64,10 +66,10 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
-            QgsProcessingParameterFileDestination(
+            QgsProcessingParameterVectorDestination(
                 self.OUTPUT,
                 "Output GeoPackage",
-                fileFilter="GeoPackage files (*.gpkg)",
+                type=QgsProcessing.SourceType.TypeVectorPolygon,
             )
         )
 
@@ -77,9 +79,17 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         context: QgsProcessingContext,
         feedback: QgsProcessingFeedback,
     ) -> dict[str, str]:
-        output_path = self.parameterAsString(parameters, self.OUTPUT, context)
+        output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
         crs: QgsCoordinateReferenceSystem = self.parameterAsCrs(
             parameters, self.CRS, context
+        )
+
+        # set only when 'Open output file after running algorithm' is checked
+        destination_value = parameters.get(self.OUTPUT)
+        destination_project = (
+            destination_value.destinationProject
+            if isinstance(destination_value, QgsProcessingOutputLayerDefinition)
+            else None
         )
 
         srs = osr.SpatialReference()
@@ -100,6 +110,12 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             "surface": STYLING_DIR / "surface.qml",
             "elevation_point": STYLING_DIR / "elevation_point.qml",
         }
+        if destination_project is not None:
+            # drop the single layer the framework registered for the GeoPackage path
+            layers_to_load = context.layersToLoadOnCompletion()
+            layers_to_load.pop(output_path, None)
+            context.setLayersToLoadOnCompletion(layers_to_load)
+
         for name, style_path in style_files.items():
             uri = f"{output_path}|layername={name}"
             layer = QgsVectorLayer(uri, name, "ogr")
@@ -110,10 +126,12 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
                 feedback.reportError(
                     f"Failed to save style for layer '{name}': {error_message}"
                 )
+            if destination_project is None:
+                continue
             context.temporaryLayerStore().addMapLayer(layer)
             context.addLayerToLoadOnCompletion(
                 layer.id(),
-                QgsProcessingContext.LayerDetails(name, context.project(), name),
+                QgsProcessingContext.LayerDetails(name, destination_project, name),
             )
 
         return {self.OUTPUT: output_path}
