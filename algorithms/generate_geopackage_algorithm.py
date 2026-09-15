@@ -3,9 +3,12 @@ from typing import Any
 
 from osgeo import ogr, osr
 from qgis.core import (
+    QgsCoordinateReferenceSystem,
     QgsProcessingAlgorithm,
     QgsProcessingContext,
+    QgsProcessingException,
     QgsProcessingFeedback,
+    QgsProcessingParameterCrs,
     QgsProcessingParameterFileDestination,
     QgsVectorLayer,
 )
@@ -16,13 +19,14 @@ STYLING_DIR = Path(__file__).parent.parent / "styling"
 
 
 class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
-    """Creates an empty Raster Caster GeoPackage (SRID 28992).
+    """Creates an empty Raster Caster GeoPackage.
 
     Tables created:
         surface          – Polygon
         elevation_point  – PointZ
     """
 
+    CRS = "CRS"
     OUTPUT = "OUTPUT"
 
     def name(self) -> str:
@@ -36,8 +40,8 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
 
     def shortHelpString(self) -> str:
         return (
-            "Creates an empty Raster Caster GeoPackage (EPSG:28992) and loads its "
-            "layers into the project.\n\n"
+            "Creates an empty Raster Caster GeoPackage in the selected CRS "
+            "(EPSG:28992 by default) and loads its layers into the project.\n\n"
             "Layers:\n"
             "- surface (Polygon): the areas to cast. Set 'definition_type' to "
             "'constant' or 'tin'. For 'constant', 'param_1' holds the elevation "
@@ -45,13 +49,20 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             "points inside the surface.\n"
             "- elevation_point (PointZ): supporting points for TIN surfaces. The "
             "'elevation' attribute is used, not the geometry Z value.\n\n"
-            "Fill these layers, then run 'Cast Raster' to produce the raster."
+            "Fill these layers, then run 'Cast' to produce the raster."
         )
 
     def createInstance(self) -> "GenerateGeopackageAlgorithm":
         return GenerateGeopackageAlgorithm()
 
     def initAlgorithm(self, config: dict[str, Any] | None = None) -> None:
+        self.addParameter(
+            QgsProcessingParameterCrs(
+                self.CRS,
+                "Coordinate reference system",
+                defaultValue="EPSG:28992",
+            )
+        )
         self.addParameter(
             QgsProcessingParameterFileDestination(
                 self.OUTPUT,
@@ -67,9 +78,15 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         feedback: QgsProcessingFeedback,
     ) -> dict[str, str]:
         output_path = self.parameterAsString(parameters, self.OUTPUT, context)
+        crs: QgsCoordinateReferenceSystem = self.parameterAsCrs(
+            parameters, self.CRS, context
+        )
 
         srs = osr.SpatialReference()
-        srs.ImportFromEPSG(28992)
+        if srs.SetFromUserInput(crs.authid() or crs.toWkt()) != 0:
+            raise QgsProcessingException(
+                f"Could not interpret the selected CRS: {crs.authid() or crs.toWkt()}"
+            )
 
         driver = ogr.GetDriverByName("GPKG")
         ds = driver.CreateDataSource(output_path)
