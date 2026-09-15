@@ -1,3 +1,5 @@
+import math
+from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -8,7 +10,33 @@ from scipy.interpolate import LinearNDInterpolator
 from shapely import constrained_delaunay_triangles, from_wkb
 from shapely.geometry import Point
 
-from .utils import periodic_linear_interp
+from .utils import nearest_segment_projection, periodic_linear_interp
+
+
+def insert_ring_points(ring_geom: Any, insertions: list) -> None:
+    """Insert (segment index, x, y, z) points in the ring, keeping vertex order."""
+    per_segment = defaultdict(list)
+    for segment_index, x, y, z in insertions:
+        per_segment[segment_index].append((x, y, z))
+
+    new_points = []
+    for index in range(ring_geom.GetPointCount() - 1):
+        start = ring_geom.GetPoint(index)
+        new_points.append(start)
+        # Multiple points on one segment have to follow each other in the
+        # direction of that segment, so order in distance to start vertex
+        segment_points = sorted(
+            per_segment.get(index, ()),
+            # Drop Z, the elevations would otherwise dominate the ordering
+            key=lambda point: math.dist(point[:2], start[:2]),
+        )
+        for point in segment_points:
+            new_points.append(point)
+    new_points.append(new_points[0])
+
+    # SetPoint appends whenever the index is past the last point of the ring
+    for index, (x, y, z) in enumerate(new_points):
+        ring_geom.SetPoint(index, x, y, z)
 
 
 def apply_constant(gpkg_path: str, out_ds: Any) -> None:
@@ -28,6 +56,9 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
     layer.SetAttributeFilter(None)
 
     elev_point_layer = gpkg_ds.GetLayerByName("elevation_point")
+
+    out_geotransform = out_ds.GetGeoTransform()
+    pixel_size = max(abs(out_geotransform[1]), abs(out_geotransform[5]))
 
     for tin_surface in tin_surface_features:
         # Convert surface polygons to PolygonZ
@@ -86,14 +117,48 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                 np.sum(distances * distances, axis=2), axis=1
             )
 
+            (
+                nearest_segment_indices,
+                segment_projections,
+                segment_distances,
+            ) = nearest_segment_projection(elev_xy, ring_vertices)
+
             # Replace each nearest ring vertex Z-value with the elevation point
             # value (Note that this is not the Z-value, but the attribute value)
-            # Only when it is not too far away
+            # Only when it is not too far away, otherwise a vertex is inserted
             closing_point_index = ring_geom.GetPointCount() - 1
             assigned_an_elevation = False
-            for elevation_point, vertex_index in zip(
-                elev_coords, nearest_vertex_indices
+            insertions = []
+            for point_index, (elevation_point, vertex_index) in enumerate(
+                zip(elev_coords, nearest_vertex_indices)
             ):
+                segment_index = int(nearest_segment_indices[point_index])
+                projection = segment_projections[point_index]
+                segment_start = ring_vertices[segment_index]
+                segment_end = ring_vertices[(segment_index + 1) % len(ring_vertices)]
+                # The elevation point sits beside a segment rather than on top of
+                # one of its vertices, so the segment gets an extra vertex at the
+                # projection of the elevation point. Projections that fall onto an
+                # existing vertex are left to the snapping below, inserting them
+                # would create a (close to) zero length segment.
+                if (
+                    segment_distances[point_index] <= distance
+                    and np.hypot(*(projection - segment_start)) > 2 * pixel_size
+                    and np.hypot(*(projection - segment_end)) > 2 * pixel_size
+                ):
+                    assigned_an_elevation = True
+                    # We'll add this point later to the ring
+                    insertions.append(
+                        (
+                            segment_index,
+                            float(projection[0]),
+                            float(projection[1]),
+                            elevation_point[2],
+                        )
+                    )
+                    continue
+
+                # If we continue here, the elevation point is close to a vertex
                 x, y, z = ring_geom.GetPoint(int(vertex_index))
                 # Only snap elevation points that are close enough to the ring
                 # Hypot calculates Euclidean distance
@@ -104,6 +169,16 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                 if vertex_index == 0:
                     # The ring is closed, update both start and end
                     ring_geom.SetPoint(closing_point_index, x, y, elevation_point[2])
+
+            if insertions:
+                insert_ring_points(ring_geom, insertions)
+                closing_point_index = ring_geom.GetPointCount() - 1
+                ring_vertices = np.array(
+                    [
+                        ring_geom.GetPoint(index)[:2]  # drop Z
+                        for index in range(closing_point_index)
+                    ]
+                )
 
             # This ring does not have assigned elevation points, should only be used to
             # mask raster
