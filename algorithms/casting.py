@@ -129,11 +129,11 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
             closing_point_index = ring_geom.GetPointCount() - 1
             assigned_an_elevation = False
             insertions = []
-            for point_index, (elevation_point, vertex_index) in enumerate(
+            for elevation_point_index, (elevation_point, vertex_index) in enumerate(
                 zip(elev_coords, nearest_vertex_indices)
             ):
-                segment_index = int(nearest_segment_indices[point_index])
-                projection = segment_projections[point_index]
+                segment_index = int(nearest_segment_indices[elevation_point_index])
+                projection = segment_projections[elevation_point_index]
                 segment_start = ring_vertices[segment_index]
                 segment_end = ring_vertices[(segment_index + 1) % len(ring_vertices)]
                 # The elevation point sits beside a segment rather than on top of
@@ -142,7 +142,7 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                 # existing vertex are left to the snapping below, inserting them
                 # would create a (close to) zero length segment.
                 if (
-                    segment_distances[point_index] <= distance
+                    segment_distances[elevation_point_index] <= distance
                     and np.hypot(*(projection - segment_start)) > 2 * pixel_size
                     and np.hypot(*(projection - segment_end)) > 2 * pixel_size
                 ):
