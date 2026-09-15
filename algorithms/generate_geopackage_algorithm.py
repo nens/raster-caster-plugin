@@ -29,7 +29,7 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         return "generate_geopackage"
 
     def displayName(self) -> str:
-        return "Generate GeoPackage"
+        return "Begin new"
 
     def icon(self) -> QIcon:
         return QIcon(str(ICON_PATH))

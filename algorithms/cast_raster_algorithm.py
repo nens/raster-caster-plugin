@@ -32,7 +32,7 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
         return "cast_raster"
 
     def displayName(self) -> str:
-        return "Raster Cast"
+        return "Cast"
 
     def icon(self) -> QIcon:
         return QIcon(str(ICON_PATH))
