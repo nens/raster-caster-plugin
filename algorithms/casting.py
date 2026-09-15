@@ -173,6 +173,7 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
             if insertions:
                 insert_ring_points(ring_geom, insertions)
                 closing_point_index = ring_geom.GetPointCount() - 1
+                # Refresh ring_vertices list, vertices can have been added above
                 ring_vertices = np.array(
                     [
                         ring_geom.GetPoint(index)[:2]  # drop Z
