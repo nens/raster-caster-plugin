@@ -12,6 +12,7 @@ from qgis.core import (
 from qgis.PyQt.QtGui import QIcon
 
 ICON_PATH = Path(__file__).parent.parent / "icon_algorithm.svg"
+STYLING_DIR = Path(__file__).parent.parent / "styling"
 
 
 class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
@@ -78,10 +79,20 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
 
         ds = None  # flush and close
 
-        layer_names = ["surface", "elevation_point"]
-        for name in layer_names:
+        style_files = {
+            "surface": STYLING_DIR / "surface.qml",
+            "elevation_point": STYLING_DIR / "elevation_point.qml",
+        }
+        for name, style_path in style_files.items():
             uri = f"{output_path}|layername={name}"
             layer = QgsVectorLayer(uri, name, "ogr")
+            layer.loadNamedStyle(str(style_path))
+            # persist the style in the GeoPackage's layer_styles table
+            error_message = layer.saveStyleToDatabase(name, "", True, "")
+            if error_message:
+                feedback.reportError(
+                    f"Failed to save style for layer '{name}': {error_message}"
+                )
             context.temporaryLayerStore().addMapLayer(layer)
             context.addLayerToLoadOnCompletion(
                 layer.id(),
@@ -89,10 +100,6 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             )
 
         return {self.OUTPUT: output_path}
-
-    # ------------------------------------------------------------------
-    # Table definitions
-    # ------------------------------------------------------------------
 
     @staticmethod
     def create_surface(ds: ogr.DataSource, srs: osr.SpatialReference) -> None:

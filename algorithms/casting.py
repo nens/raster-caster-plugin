@@ -90,7 +90,7 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
         )
         elev_point_layer.SetSpatialFilter(None)
 
-        if len(elev_coords) < 3:
+        if len(elev_coords) < 1:
             continue
 
         # Use 2D for determining nearest elevation point
