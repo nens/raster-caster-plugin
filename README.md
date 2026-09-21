@@ -27,7 +27,7 @@ Burns the surfaces into a new raster. Constant surfaces are rasterized with thei
 contain.
 
 - **Input GeoPackage**: a GeoPackage created by *Begin new*.
-- **Input Raster**: optional; its pixel size is used for the output.
+- **Input Raster**: optional; its extent and pixel size are used for the output. Surfaces are cast onto this raster.
 - **Pixel Size**: output resolution, required when no input raster is given.
 - **Snapping distance**: search buffer around a TIN surface for elevation points
   that lie just outside it.
