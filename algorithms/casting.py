@@ -1,5 +1,6 @@
 import math
 from collections import defaultdict
+from collections.abc import Callable
 from typing import Any
 
 import numpy as np
@@ -48,7 +49,13 @@ def apply_constant(gpkg_path: str, out_ds: Any) -> None:
     )
 
 
-def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
+def apply_tin(
+    gpkg_ds: Any,
+    layer: Any,
+    out_ds: Any,
+    distance: float,
+    progress_callback: Callable[[float], None] | None = None,
+) -> bool:
     # Retrieve tin surfaces
     layer.SetAttributeFilter("definition_type = 'tin'")
     tin_surface_features = [f for f in layer]
@@ -59,7 +66,11 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
     out_geotransform = out_ds.GetGeoTransform()
     pixel_size = max(abs(out_geotransform[1]), abs(out_geotransform[5]))
 
-    for tin_surface in tin_surface_features:
+    surface_count = len(tin_surface_features)
+    if progress_callback is not None:
+        progress_callback(0.0 if surface_count else 100.0)
+
+    for surface_index, tin_surface in enumerate(tin_surface_features):
         # Convert surface polygons to PolygonZ
         tin_geom = tin_surface.GetGeometryRef()
         polygon_z = ogr.Geometry(ogr.wkbPolygon25D)
@@ -90,6 +101,8 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
         elev_point_layer.SetSpatialFilter(None)
 
         if len(elev_coords) < 1:
+            if progress_callback is not None:
+                progress_callback((surface_index + 1) / surface_count * 100.0)
             continue
 
         # Coincident elevation points would snap onto the same ring vertex or
@@ -312,4 +325,7 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                     raster_array[row, col] = interp(px_x - origin[0], px_y - origin[1])
 
         band.WriteArray(raster_array)
+
+        if progress_callback is not None:
+            progress_callback((surface_index + 1) / surface_count * 100.0)
     return True

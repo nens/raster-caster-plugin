@@ -151,6 +151,6 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             band.SetNoDataValue(-9999.0)
 
         apply_constant(gpkg_path, out_ds)
-        apply_tin(gpkg_ds, layer, out_ds, snapping_distance)
+        apply_tin(gpkg_ds, layer, out_ds, snapping_distance, feedback.setProgress)
 
         return {self.OUTPUT: output_path}
