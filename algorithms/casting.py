@@ -1,6 +1,5 @@
 import math
 from collections import defaultdict
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -93,6 +92,11 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
         if len(elev_coords) < 1:
             continue
 
+        # Coincident elevation points would snap onto the same ring vertex or
+        # insert a zero length ring segment, keep the first of each location
+        _, first_occurrences = np.unique(elev_coords[:, :2], axis=0, return_index=True)
+        elev_coords = elev_coords[np.sort(first_occurrences)]
+
         # Use 2D for determining nearest elevation point
         elev_xy = elev_coords[:, :2]  # drop Z
 
@@ -129,6 +133,9 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
             closing_point_index = ring_geom.GetPointCount() - 1
             assigned_an_elevation = False
             insertions = []
+            inserted_per_segment: dict[int, list[tuple[float, float]]] = defaultdict(
+                list
+            )
             for elevation_point_index, (elevation_point, vertex_index) in enumerate(
                 zip(elev_coords, nearest_vertex_indices)
             ):
@@ -146,7 +153,17 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                     and np.hypot(*(projection - segment_start)) > 2 * pixel_size
                     and np.hypot(*(projection - segment_end)) > 2 * pixel_size
                 ):
+                    # Elevation points lined up perpendicular to a segment share
+                    # their projection, only the first one is inserted
+                    if any(
+                        np.hypot(projection[0] - x, projection[1] - y) <= 2 * pixel_size
+                        for x, y in inserted_per_segment[segment_index]
+                    ):
+                        continue
                     assigned_an_elevation = True
+                    inserted_per_segment[segment_index].append(
+                        (float(projection[0]), float(projection[1]))
+                    )
                     # We'll add this point later to the ring
                     insertions.append(
                         (
@@ -237,25 +254,6 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
         shapely_polygon = from_wkb(bytes(tin_geom.ExportToWkb()))
         triangles = constrained_delaunay_triangles(shapely_polygon)
 
-        # TEST Create triangles geopackage
-        triangles_gpkg = None
-        triangles_layer = None
-        driver = ogr.GetDriverByName("GPKG")
-        triangles_path = Path(out_ds.GetDescription()).with_suffix(".gpkg")
-        if triangles_path.exists():
-            driver.DeleteDataSource(str(triangles_path))
-        triangles_gpkg = driver.CreateDataSource(str(triangles_path))
-        triangles_layer = triangles_gpkg.CreateLayer(
-            "triangles", geom_type=ogr.wkbPolygon
-        )
-        for triangle in triangles.geoms:
-            feature = ogr.Feature(triangles_layer.GetLayerDefn())
-            triangle_ogr = ogr.CreateGeometryFromWkb(triangle.wkb)
-            feature.SetGeometry(triangle_ogr)
-            triangles_layer.CreateFeature(feature)
-        triangles_gpkg = None
-        print(triangles)
-
         # Apply interpolation to raster
         band = out_ds.GetRasterBand(1)
         band.SetNoDataValue(-9999.0)
@@ -274,7 +272,12 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
             coords.sort()
             tri_points = np.array([(coord[0], coord[1]) for coord in coords])
             tri_z = np.array([coord[2] for coord in coords])
-            interp = LinearNDInterpolator(tri_points, tri_z, fill_value=-9999.0)
+            # Qhull judges degeneracy against the magnitude of the coordinates, so
+            # sliver triangles are rejected on map coordinates but not on local ones
+            origin = tri_points[0]
+            interp = LinearNDInterpolator(
+                tri_points - origin, tri_z, fill_value=-9999.0
+            )
 
             # Convert triangle bounds to raster pixel coordinates
             min_tri_x, min_tri_y, max_tri_x, max_tri_y = triangle.bounds
@@ -306,7 +309,7 @@ def apply_tin(gpkg_ds: Any, layer: Any, out_ds: Any, distance: float) -> bool:
                         mask_polygon.covers(pixel) for mask_polygon in mask_polygons
                     ):
                         continue
-                    raster_array[row, col] = interp(px_x, px_y)
+                    raster_array[row, col] = interp(px_x - origin[0], px_y - origin[1])
 
         band.WriteArray(raster_array)
     return True
