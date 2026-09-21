@@ -1,5 +1,8 @@
 [tool.isort]
 profile = "black"
+# Explicit, because isort otherwise infers this from the checkout directory name,
+# which differs between local (raster_caster_plugin) and CI (raster-caster-plugin).
+known_first_party = ["raster_caster_plugin"]
 
 [tool.flake8]
 max-line-length = 88
