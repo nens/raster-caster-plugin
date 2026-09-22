@@ -73,6 +73,21 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
+    def checkParameterValues(
+        self,
+        parameters: dict[str, Any],
+        context: QgsProcessingContext,
+    ) -> Any:
+        value = parameters.get(self.OUTPUT)
+        if isinstance(value, QgsProcessingOutputLayerDefinition):
+            value = value.sink.staticValue()
+        if not value or value == QgsProcessing.TEMPORARY_OUTPUT:
+            return False, (
+                "Choose a file to save the GeoPackage to; a temporary file is not "
+                "supported because the layers are meant to be edited and reused."
+            )
+        return super().checkParameterValues(parameters, context)
+
     def processAlgorithm(
         self,
         parameters: dict[str, Any],

@@ -18,6 +18,7 @@ Raster Caster changelog
 - input files are now properly unlocked in case of validation errors.
 - Several fields are now no longer nullable (elevation, definition-type).
 - Inputs are now layers instead of geopackage.
+- Generate geopackage: no longer able to save to temporary file.
 
 
 0.2 (2026-09-21)
