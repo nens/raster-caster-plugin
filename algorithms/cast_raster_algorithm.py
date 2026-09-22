@@ -4,11 +4,13 @@ from typing import Any
 
 from osgeo import gdal, ogr
 from qgis.core import (
+    QgsMapLayer,
     QgsProcessing,
     QgsProcessingAlgorithm,
     QgsProcessingContext,
     QgsProcessingException,
     QgsProcessingFeedback,
+    QgsProcessingLayerPostProcessorInterface,
     QgsProcessingParameterNumber,
     QgsProcessingParameterRasterDestination,
     QgsProcessingParameterRasterLayer,
@@ -19,6 +21,26 @@ from qgis.PyQt.QtGui import QIcon
 from .casting import apply_constant, apply_tin
 
 ICON_PATH = Path(__file__).parent.parent / "icon.svg"
+STYLE_PATH = Path(__file__).parent.parent / "styling" / "output.qml"
+
+
+class OutputStyler(QgsProcessingLayerPostProcessorInterface):
+    """Applies the Raster Caster style to the output raster."""
+
+    # Needs a reference that outlives processAlgorithm
+    instance: "OutputStyler | None" = None
+
+    def postProcessLayer(
+        self,
+        layer: QgsMapLayer,
+        context: QgsProcessingContext,
+        feedback: QgsProcessingFeedback,
+    ) -> None:
+        error_message, ok = layer.loadNamedStyle(str(STYLE_PATH))
+        if not ok:
+            feedback.reportError(f"Failed to apply the output style: {error_message}")
+            return
+        layer.triggerRepaint()
 
 
 class CastRasterAlgorithm(QgsProcessingAlgorithm):
@@ -260,5 +282,11 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 )
             finally:
                 out_ds.Close()
+
+        if context.willLoadLayerOnCompletion(output_path):
+            OutputStyler.instance = OutputStyler()
+            context.layerToLoadOnCompletionDetails(output_path).setPostProcessor(
+                OutputStyler.instance
+            )
 
         return {self.OUTPUT: output_path}

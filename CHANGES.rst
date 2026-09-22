@@ -19,7 +19,7 @@ Raster Caster changelog
 - Several fields are now no longer nullable (elevation, definition-type).
 - Inputs are now layers instead of geopackage.
 - Generate geopackage: no longer able to save to temporary file.
-
+- Set styling to output raster.
 
 0.2 (2026-09-21)
 ----------------
