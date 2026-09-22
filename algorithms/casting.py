@@ -39,29 +39,27 @@ def insert_ring_points(ring_geom: Any, insertions: list) -> None:
         ring_geom.SetPoint(index, x, y, z)
 
 
-def apply_constant(gpkg_path: str, out_ds: Any) -> None:
+def apply_constant(surface_path: str, surface_layer_name: str, out_ds: Any) -> None:
     gdal.Rasterize(
         out_ds,
-        gpkg_path,
-        layers=["surface"],
+        surface_path,
+        layers=[surface_layer_name],
         attribute="param_1",
         where="definition_type = 'constant'",
     )
 
 
 def apply_tin(
-    gpkg_ds: Any,
-    layer: Any,
+    surface_layer: Any,
+    elev_point_layer: Any,
     out_ds: Any,
     distance: float,
     progress_callback: Callable[[float], None] | None = None,
 ) -> bool:
     # Retrieve tin surfaces
-    layer.SetAttributeFilter("definition_type = 'tin'")
-    tin_surface_features = [f for f in layer]
-    layer.SetAttributeFilter(None)
-
-    elev_point_layer = gpkg_ds.GetLayerByName("elevation_point")
+    surface_layer.SetAttributeFilter("definition_type = 'tin'")
+    tin_surface_features = [f for f in surface_layer]
+    surface_layer.SetAttributeFilter(None)
 
     out_geotransform = out_ds.GetGeoTransform()
     pixel_size = max(abs(out_geotransform[1]), abs(out_geotransform[5]))

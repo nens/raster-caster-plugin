@@ -4,14 +4,15 @@ from typing import Any
 
 from osgeo import gdal, ogr
 from qgis.core import (
+    QgsProcessing,
     QgsProcessingAlgorithm,
     QgsProcessingContext,
     QgsProcessingException,
     QgsProcessingFeedback,
-    QgsProcessingParameterFile,
     QgsProcessingParameterNumber,
     QgsProcessingParameterRasterDestination,
     QgsProcessingParameterRasterLayer,
+    QgsProcessingParameterVectorLayer,
 )
 from qgis.PyQt.QtGui import QIcon
 
@@ -23,7 +24,8 @@ ICON_PATH = Path(__file__).parent.parent / "icon.svg"
 class CastRasterAlgorithm(QgsProcessingAlgorithm):
     """Skeleton algorithm — implementation pending."""
 
-    INPUT_GPKG = "INPUT_GPKG"
+    INPUT_SURFACE = "INPUT_SURFACE"
+    INPUT_ELEVATION_POINTS = "INPUT_ELEVATION_POINTS"
     INPUT_RASTER = "INPUT_RASTER"
     PIXEL_SIZE = "PIXEL_SIZE"
     SNAPPING_DISTANCE = "SNAPPING_DISTANCE"
@@ -40,13 +42,15 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
 
     def shortHelpString(self) -> str:
         return (
-            "Casts elevation values onto a new raster using the 'surface' and "
-            "'elevation_point' layers of a Raster Caster GeoPackage. Surfaces with "
-            "definition_type 'constant' are burned in with their 'param_1' value; "
-            "surfaces with 'tin' are interpolated from the elevation points they "
-            "contain. The output extent follows the extent of the surface layer.\n\n"
+            "Casts elevation values onto a new raster using a surface polygon layer "
+            "and an elevation point layer. Surfaces with definition_type 'constant' "
+            "are burned in with their 'param_1' value; surfaces with 'tin' are "
+            "interpolated from the elevation points they contain. The output extent "
+            "follows the extent of the surface layer.\n\n"
             "Parameters:\n"
-            "- Input GeoPackage: a GeoPackage created by 'Generate GeoPackage'.\n"
+            "- Surface layer: polygons with the 'definition_type' and 'param_1' "
+            "fields, as created by 'Begin new'.\n"
+            "- Elevation point layer: points with an 'elevation' field.\n"
             "- Input Raster: optional; optional; its extent and pixel size are used"
             " for the output. Surfaces are cast onto this raster.\n"
             "- Pixel Size: output resolution, required when no input raster is given.\n"
@@ -59,10 +63,17 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
 
     def initAlgorithm(self, config: dict[str, Any] | None = None) -> None:
         self.addParameter(
-            QgsProcessingParameterFile(
-                self.INPUT_GPKG,
-                "Input GeoPackage",
-                extension="gpkg",
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_SURFACE,
+                "Surface layer",
+                types=[QgsProcessing.SourceType.TypeVectorPolygon],
+            )
+        )
+        self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_ELEVATION_POINTS,
+                "Elevation point layer",
+                types=[QgsProcessing.SourceType.TypeVectorPoint],
             )
         )
         self.addParameter(
@@ -109,12 +120,17 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             return False, "Pixel Size is required when no Input Raster is provided."
         return super().checkParameterValues(parameters, context)
 
-    def validateGeoPackage(self, gpkg_ds: Any) -> None:
-        surface_layer = gpkg_ds.GetLayerByName("surface")
-        if surface_layer is None:
-            raise QgsProcessingException(
-                "The GeoPackage does not contain a 'surface' layer."
-            )
+    @staticmethod
+    def validateLayers(surface_layer: Any, point_layer: Any) -> None:
+        if surface_layer.GetFeatureCount() == 0:
+            raise QgsProcessingException("The surface layer has no features.")
+
+        surface_defn = surface_layer.GetLayerDefn()
+        for field_name in ("definition_type", "param_1"):
+            if surface_defn.GetFieldIndex(field_name) < 0:
+                raise QgsProcessingException(
+                    f"The surface layer has no '{field_name}' field."
+                )
 
         for feature in surface_layer:
             definition_type = feature.GetField("definition_type")
@@ -131,10 +147,9 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                     "'definition_type' is 'constant'."
                 )
 
-        point_layer = gpkg_ds.GetLayerByName("elevation_point")
-        if point_layer is None:
+        if point_layer.GetLayerDefn().GetFieldIndex("elevation") < 0:
             raise QgsProcessingException(
-                "The GeoPackage does not contain an 'elevation_point' layer."
+                "The elevation point layer has no 'elevation' field."
             )
 
         for feature in point_layer:
@@ -149,20 +164,54 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
         context: QgsProcessingContext,
         feedback: QgsProcessingFeedback,
     ) -> dict[str, str]:
-        gpkg_path = self.parameterAsString(parameters, self.INPUT_GPKG, context)
         raster = self.parameterAsRasterLayer(parameters, self.INPUT_RASTER, context)
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
         snapping_distance = self.parameterAsDouble(
             parameters, self.SNAPPING_DISTANCE, context
         )
 
-        gpkg_ds = ogr.Open(gpkg_path)
-        if gpkg_ds is None:
-            raise QgsProcessingException(f"Could not open GeoPackage: {gpkg_path}")
+        # Writes a temporary GeoPackage for sources GDAL cannot read directly
+        surface_path, surface_name = (
+            self.parameterAsCompatibleSourceLayerPathAndLayerName(
+                parameters, self.INPUT_SURFACE, context, ["gpkg"], "gpkg", feedback
+            )
+        )
+        points_path, points_name = (
+            self.parameterAsCompatibleSourceLayerPathAndLayerName(
+                parameters,
+                self.INPUT_ELEVATION_POINTS,
+                context,
+                ["gpkg"],
+                "gpkg",
+                feedback,
+            )
+        )
 
-        # Closes the GeoPackage even when an exception leaves references alive
-        with gpkg_ds:
-            self.validateGeoPackage(gpkg_ds)
+        surface_ds = ogr.Open(surface_path)
+        if surface_ds is None:
+            raise QgsProcessingException(
+                f"Could not open the surface layer source: {surface_path}"
+            )
+        points_ds = ogr.Open(points_path)
+        if points_ds is None:
+            surface_ds.Close()
+            raise QgsProcessingException(
+                f"Could not open the elevation point layer source: {points_path}"
+            )
+
+        # Closes the sources even when an exception leaves references alive
+        with surface_ds, points_ds:
+            surface_layer = (
+                surface_ds.GetLayerByName(surface_name)
+                if surface_name
+                else surface_ds.GetLayer(0)
+            )
+            point_layer = (
+                points_ds.GetLayerByName(points_name)
+                if points_name
+                else points_ds.GetLayer(0)
+            )
+            self.validateLayers(surface_layer, point_layer)
 
             if raster is not None:
                 pixel_size = raster.rasterUnitsPerPixelX()
@@ -171,9 +220,8 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                     parameters, self.PIXEL_SIZE, context
                 )
 
-            layer = gpkg_ds.GetLayerByName("surface")
-            extent = layer.GetExtent()  # (minX, maxX, minY, maxY)
-            srs = layer.GetSpatialRef()
+            extent = surface_layer.GetExtent()  # (minX, maxX, minY, maxY)
+            srs = surface_layer.GetSpatialRef()
 
             # Create the new raster
             if raster is not None:
@@ -185,6 +233,12 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 min_x, max_x, min_y, max_y = extent
                 cols = math.ceil((max_x - min_x) / pixel_size)
                 rows = math.ceil((max_y - min_y) / pixel_size)
+                if cols < 1 or rows < 1:
+                    raise QgsProcessingException(
+                        f"The extent of the surface layer ({min_x}, {min_y}) - "
+                        f"({max_x}, {max_y}) is too small for the requested pixel "
+                        f"size of {pixel_size}."
+                    )
 
                 driver = gdal.GetDriverByName("GTiff")
                 out_ds = driver.Create(output_path, cols, rows, 1, gdal.GDT_Float32)
@@ -195,9 +249,13 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 band.SetNoDataValue(-9999.0)
 
             try:
-                apply_constant(gpkg_path, out_ds)
+                apply_constant(surface_path, surface_layer.GetName(), out_ds)
                 apply_tin(
-                    gpkg_ds, layer, out_ds, snapping_distance, feedback.setProgress
+                    surface_layer,
+                    point_layer,
+                    out_ds,
+                    snapping_distance,
+                    feedback.setProgress,
                 )
             finally:
                 out_ds.Close()
