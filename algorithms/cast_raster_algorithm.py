@@ -4,6 +4,7 @@ from typing import Any
 
 from osgeo import gdal, ogr
 from qgis.core import (
+    Qgis,
     QgsMapLayer,
     QgsProcessing,
     QgsProcessingAlgorithm,
@@ -15,6 +16,8 @@ from qgis.core import (
     QgsProcessingParameterRasterDestination,
     QgsProcessingParameterRasterLayer,
     QgsProcessingParameterVectorLayer,
+    QgsProject,
+    QgsVectorLayer,
 )
 from qgis.PyQt.QtGui import QIcon
 
@@ -22,6 +25,17 @@ from .casting import apply_constant, apply_tin
 
 ICON_PATH = Path(__file__).parent.parent / "icon.svg"
 STYLE_PATH = Path(__file__).parent.parent / "styling" / "output.qml"
+
+
+def single_layer_id(geometry_type: Qgis.GeometryType) -> str | None:
+    """Id of the project's only vector layer of this geometry type, None in case
+    there are more."""
+    layers = [
+        layer
+        for layer in QgsProject.instance().mapLayers().values()
+        if isinstance(layer, QgsVectorLayer) and layer.geometryType() == geometry_type
+    ]
+    return layers[0].id() if len(layers) == 1 else None
 
 
 class OutputStyler(QgsProcessingLayerPostProcessorInterface):
@@ -89,6 +103,7 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 self.INPUT_SURFACE,
                 "Surface layer",
                 types=[QgsProcessing.SourceType.TypeVectorPolygon],
+                defaultValue=single_layer_id(Qgis.GeometryType.Polygon),
             )
         )
         self.addParameter(
@@ -96,6 +111,7 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
                 self.INPUT_ELEVATION_POINTS,
                 "Elevation point layer",
                 types=[QgsProcessing.SourceType.TypeVectorPoint],
+                defaultValue=single_layer_id(Qgis.GeometryType.Point),
             )
         )
         self.addParameter(

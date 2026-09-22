@@ -21,6 +21,7 @@ Raster Caster changelog
 - Generate geopackage: no longer able to save to temporary file.
 - Set styling to output raster.
 - Added in_polygon_only support
+- Improved autofilling of input layers.
 
 0.2 (2026-09-21)
 ----------------
