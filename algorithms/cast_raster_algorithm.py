@@ -6,6 +6,7 @@ from osgeo import gdal, ogr
 from qgis.core import (
     QgsProcessingAlgorithm,
     QgsProcessingContext,
+    QgsProcessingException,
     QgsProcessingFeedback,
     QgsProcessingParameterFile,
     QgsProcessingParameterNumber,
@@ -108,6 +109,40 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             return False, "Pixel Size is required when no Input Raster is provided."
         return super().checkParameterValues(parameters, context)
 
+    def validateGeoPackage(self, gpkg_ds: Any) -> None:
+        surface_layer = gpkg_ds.GetLayerByName("surface")
+        if surface_layer is None:
+            raise QgsProcessingException(
+                "The GeoPackage does not contain a 'surface' layer."
+            )
+
+        for feature in surface_layer:
+            definition_type = feature.GetField("definition_type")
+            if definition_type not in ("constant", "tin"):
+                raise QgsProcessingException(
+                    f"Surface {feature.GetFID()}: 'definition_type' must be "
+                    f"'constant' or 'tin', got {definition_type!r}."
+                )
+            if definition_type == "constant" and not feature.IsFieldSetAndNotNull(
+                "param_1"
+            ):
+                raise QgsProcessingException(
+                    f"Surface {feature.GetFID()}: 'param_1' is required when "
+                    "'definition_type' is 'constant'."
+                )
+
+        point_layer = gpkg_ds.GetLayerByName("elevation_point")
+        if point_layer is None:
+            raise QgsProcessingException(
+                "The GeoPackage does not contain an 'elevation_point' layer."
+            )
+
+        for feature in point_layer:
+            if not feature.IsFieldSetAndNotNull("elevation"):
+                raise QgsProcessingException(
+                    f"Elevation point {feature.GetFID()}: 'elevation' is required."
+                )
+
     def processAlgorithm(
         self,
         parameters: dict[str, Any],
@@ -121,12 +156,16 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             parameters, self.SNAPPING_DISTANCE, context
         )
 
+        gpkg_ds = ogr.Open(gpkg_path)
+        if gpkg_ds is None:
+            raise QgsProcessingException(f"Could not open GeoPackage: {gpkg_path}")
+        self.validateGeoPackage(gpkg_ds)
+
         if raster is not None:
             pixel_size = raster.rasterUnitsPerPixelX()
         else:
             pixel_size = self.parameterAsDouble(parameters, self.PIXEL_SIZE, context)
 
-        gpkg_ds = ogr.Open(gpkg_path)
         layer = gpkg_ds.GetLayerByName("surface")
         extent = layer.GetExtent()  # (minX, maxX, minY, maxY)
         srs = layer.GetSpatialRef()

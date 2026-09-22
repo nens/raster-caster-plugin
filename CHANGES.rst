@@ -13,6 +13,7 @@ Raster Caster changelog
 - Interpolate triangles on coordinates local to the triangle, so sliver
   triangles are no longer rejected as degenerate by Qhull.
 - Removed the debug code that wrote the triangulation to a GeoPackage.
+- Added validation on input layers.
 
 
 0.2 (2026-09-21)
