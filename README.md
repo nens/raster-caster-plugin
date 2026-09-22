@@ -18,7 +18,8 @@ loads its two layers into the project:
   - `definition_type = 'tin'`: the elevation is interpolated from the elevation
     points inside the surface.
 - **elevation point** (Point): supporting points for TIN surfaces. The `elevation`
-  attribute is used to define height.
+  attribute is used to define height. Set `in_polygon_only` to true to restrict a
+  point to the surfaces it actually lies inside.
 
 ### 2. Cast
 
@@ -28,11 +29,12 @@ contain.
 
 - **Surface layer**: polygons with the `definition_type` and `param_1` fields, as
   created by *Begin new*.
-- **Elevation point layer**: points with an `elevation` field.
+- **Elevation point layer**: points with an `elevation` and `in_polygon_only` field.
 - **Input Raster**: optional; its extent and pixel size are used for the output. Surfaces are cast onto this raster.
 - **Pixel Size**: output resolution, required when no input raster is given.
 - **Snapping distance**: search buffer around a TIN surface for elevation points
-  that lie just outside it.
+  that lie just outside it. Points with `in_polygon_only` set are not picked up by
+  this buffer.
 
 Without an input raster, the output extent follows the extent of the surface layer.
 

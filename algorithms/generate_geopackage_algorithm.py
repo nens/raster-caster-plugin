@@ -188,3 +188,9 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         fld = ogr.FieldDefn("elevation", ogr.OFTReal)
         fld.SetNullable(False)
         lyr.CreateField(fld)
+
+        fld = ogr.FieldDefn("in_polygon_only", ogr.OFTInteger)
+        fld.SetSubType(ogr.OFSTBoolean)
+        fld.SetNullable(False)
+        fld.SetDefault("False")
+        lyr.CreateField(fld)

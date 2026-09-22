@@ -83,20 +83,23 @@ def apply_tin(
 
         # Get the elevation points in the polygon. The convex hull is used so that
         # points in holes or concave parts of the polygon are also considered.
+        surface_geom = tin_surface.GetGeometryRef()
         elev_point_layer.SetSpatialFilter(tin_geom.ConvexHull().Buffer(distance))
-        elev_coords = np.array(
-            [
+        elev_points = []
+        for f in elev_point_layer:
+            point_geom = f.GetGeometryRef()
+            if f["in_polygon_only"] and not surface_geom.Contains(point_geom):
+                continue
+            elev_points.append(
                 (
-                    f.GetGeometryRef().GetX(),
-                    f.GetGeometryRef().GetY(),
-                    f[
-                        "elevation"
-                    ],  # Note that this is not the Z, but attribute "elevation"
+                    point_geom.GetX(),
+                    point_geom.GetY(),
+                    # Note that this is not the Z, but attribute "elevation"
+                    f["elevation"],
                 )
-                for f in elev_point_layer
-            ]
-        )
+            )
         elev_point_layer.SetSpatialFilter(None)
+        elev_coords = np.array(elev_points)
 
         if len(elev_coords) < 1:
             if progress_callback is not None:
