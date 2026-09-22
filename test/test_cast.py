@@ -22,9 +22,10 @@ class TestCasting:
         out_ds = driver.CreateCopy(str(output_path), raster_ds)
 
         surface_layer = gpkg_ds.GetLayerByName("surface")
+        point_layer = gpkg_ds.GetLayerByName("elevation_point")
         distance = 3.0
-        apply_constant(str(gpkg_path), out_ds)
-        apply_tin(gpkg_ds, surface_layer, out_ds, distance)
+        apply_constant(str(gpkg_path), "surface", out_ds)
+        apply_tin(surface_layer, point_layer, out_ds, distance)
 
     def test_full_pipeline_holes_dem(self, tmp_path: Path) -> None:
         data_dir = Path(__file__).parent / "data"
@@ -38,10 +39,11 @@ class TestCasting:
         driver = gdal.GetDriverByName("GTiff")
         out_ds = driver.CreateCopy(str(output_path), raster_ds)
         surface_layer = gpkg_ds.GetLayerByName("surface")
+        point_layer = gpkg_ds.GetLayerByName("elevation_point")
         distance = 3.0
 
-        apply_constant(str(gpkg_path), out_ds)
-        apply_tin(gpkg_ds, surface_layer, out_ds, distance)
+        apply_constant(str(gpkg_path), "surface", out_ds)
+        apply_tin(surface_layer, point_layer, out_ds, distance)
 
     def test_full_pipeline_no_dem(self, tmp_path: Path) -> None:
         data_dir = Path(__file__).parent / "data"
@@ -51,6 +53,7 @@ class TestCasting:
         ogr.UseExceptions()
         gpkg_ds = ogr.Open(str(gpkg_path))
         surface_layer = gpkg_ds.GetLayerByName("surface")
+        point_layer = gpkg_ds.GetLayerByName("elevation_point")
         srs = surface_layer.GetSpatialRef()
         pixel_size = 0.5
         distance = 3.0
@@ -68,8 +71,8 @@ class TestCasting:
         band = out_ds.GetRasterBand(1)
         band.SetNoDataValue(-9999.0)
 
-        apply_constant(str(gpkg_path), out_ds)
-        apply_tin(gpkg_ds, surface_layer, out_ds, distance)
+        apply_constant(str(gpkg_path), "surface", out_ds)
+        apply_tin(surface_layer, point_layer, out_ds, distance)
 
     def test_full_pipeline_holes(self, tmp_path: Path) -> None:
         data_dir = Path(__file__).parent / "data"
@@ -79,6 +82,7 @@ class TestCasting:
         ogr.UseExceptions()
         gpkg_ds = ogr.Open(str(gpkg_path))
         surface_layer = gpkg_ds.GetLayerByName("surface")
+        point_layer = gpkg_ds.GetLayerByName("elevation_point")
         srs = surface_layer.GetSpatialRef()
         pixel_size = 0.5
         distance = 3.0
@@ -96,5 +100,5 @@ class TestCasting:
         band = out_ds.GetRasterBand(1)
         band.SetNoDataValue(-9999.0)
 
-        apply_constant(str(gpkg_path), out_ds)
-        apply_tin(gpkg_ds, surface_layer, out_ds, distance)
+        apply_constant(str(gpkg_path), "surface", out_ds)
+        apply_tin(surface_layer, point_layer, out_ds, distance)
