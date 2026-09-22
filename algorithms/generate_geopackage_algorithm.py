@@ -25,7 +25,7 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
 
     Tables created:
         surface          – Polygon
-        elevation_point  – PointZ
+        elevation_point  – Point
     """
 
     CRS = "CRS"
@@ -49,8 +49,8 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             "'constant' or 'tin'. For 'constant', 'param_1' holds the elevation "
             "value; for 'tin' the elevation is interpolated from the elevation "
             "points inside the surface.\n"
-            "- elevation point (PointZ): supporting points for TIN surfaces. The "
-            "'elevation' attribute is used, not the geometry Z value.\n\n"
+            "- elevation point (Point): supporting points for TIN surfaces. The "
+            "'elevation' attribute holds the height.\n\n"
             "Fill these layers, then run 'Cast' to produce the raster."
         )
 
@@ -153,6 +153,6 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
 
     @staticmethod
     def create_el_point(ds: ogr.DataSource, srs: osr.SpatialReference) -> None:
-        lyr = ds.CreateLayer("elevation_point", srs, ogr.wkbPoint25D)
+        lyr = ds.CreateLayer("elevation_point", srs, ogr.wkbPoint)
         lyr.CreateField(ogr.FieldDefn("comment", ogr.OFTString))
         lyr.CreateField(ogr.FieldDefn("elevation", ogr.OFTReal))

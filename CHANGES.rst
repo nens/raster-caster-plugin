@@ -14,6 +14,7 @@ Raster Caster changelog
   triangles are no longer rejected as degenerate by Qhull.
 - Removed the debug code that wrote the triangulation to a GeoPackage.
 - Added validation on input layers.
+- Elevation point layer is now a Point layer, not PointZ.
 
 
 0.2 (2026-09-21)
