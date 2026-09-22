@@ -170,7 +170,8 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             parameters, self.SNAPPING_DISTANCE, context
         )
 
-        # Writes a temporary GeoPackage for sources GDAL cannot read directly
+        # Writes a temporary GeoPackage (if needed) for sources GDAL cannot
+        # read directly
         surface_path, surface_name = (
             self.parameterAsCompatibleSourceLayerPathAndLayerName(
                 parameters, self.INPUT_SURFACE, context, ["gpkg"], "gpkg", feedback
