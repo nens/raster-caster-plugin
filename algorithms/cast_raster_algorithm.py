@@ -159,37 +159,47 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
         gpkg_ds = ogr.Open(gpkg_path)
         if gpkg_ds is None:
             raise QgsProcessingException(f"Could not open GeoPackage: {gpkg_path}")
-        self.validateGeoPackage(gpkg_ds)
 
-        if raster is not None:
-            pixel_size = raster.rasterUnitsPerPixelX()
-        else:
-            pixel_size = self.parameterAsDouble(parameters, self.PIXEL_SIZE, context)
+        # Closes the GeoPackage even when an exception leaves references alive
+        with gpkg_ds:
+            self.validateGeoPackage(gpkg_ds)
 
-        layer = gpkg_ds.GetLayerByName("surface")
-        extent = layer.GetExtent()  # (minX, maxX, minY, maxY)
-        srs = layer.GetSpatialRef()
+            if raster is not None:
+                pixel_size = raster.rasterUnitsPerPixelX()
+            else:
+                pixel_size = self.parameterAsDouble(
+                    parameters, self.PIXEL_SIZE, context
+                )
 
-        # Create the new raster
-        if raster is not None:
-            src_ds = gdal.Open(raster.source())
-            driver = gdal.GetDriverByName("GTiff")
-            out_ds = driver.CreateCopy(output_path, src_ds)
-            src_ds = None
-        else:
-            min_x, max_x, min_y, max_y = extent
-            cols = math.ceil((max_x - min_x) / pixel_size)
-            rows = math.ceil((max_y - min_y) / pixel_size)
+            layer = gpkg_ds.GetLayerByName("surface")
+            extent = layer.GetExtent()  # (minX, maxX, minY, maxY)
+            srs = layer.GetSpatialRef()
 
-            driver = gdal.GetDriverByName("GTiff")
-            out_ds = driver.Create(output_path, cols, rows, 1, gdal.GDT_Float32)
-            out_ds.SetGeoTransform((min_x, pixel_size, 0, max_y, 0, -pixel_size))
-            out_ds.SetProjection(srs.ExportToWkt())
+            # Create the new raster
+            if raster is not None:
+                src_ds = gdal.Open(raster.source())
+                driver = gdal.GetDriverByName("GTiff")
+                out_ds = driver.CreateCopy(output_path, src_ds)
+                src_ds = None
+            else:
+                min_x, max_x, min_y, max_y = extent
+                cols = math.ceil((max_x - min_x) / pixel_size)
+                rows = math.ceil((max_y - min_y) / pixel_size)
 
-            band = out_ds.GetRasterBand(1)
-            band.SetNoDataValue(-9999.0)
+                driver = gdal.GetDriverByName("GTiff")
+                out_ds = driver.Create(output_path, cols, rows, 1, gdal.GDT_Float32)
+                out_ds.SetGeoTransform((min_x, pixel_size, 0, max_y, 0, -pixel_size))
+                out_ds.SetProjection(srs.ExportToWkt())
 
-        apply_constant(gpkg_path, out_ds)
-        apply_tin(gpkg_ds, layer, out_ds, snapping_distance, feedback.setProgress)
+                band = out_ds.GetRasterBand(1)
+                band.SetNoDataValue(-9999.0)
+
+            try:
+                apply_constant(gpkg_path, out_ds)
+                apply_tin(
+                    gpkg_ds, layer, out_ds, snapping_distance, feedback.setProgress
+                )
+            finally:
+                out_ds.Close()
 
         return {self.OUTPUT: output_path}
