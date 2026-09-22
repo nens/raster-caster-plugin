@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Any
 
-from osgeo import ogr, osr
+from osgeo import gdal, ogr, osr
 from qgis.core import (
     QgsCoordinateReferenceSystem,
     QgsProcessing,
@@ -45,12 +45,12 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             "Creates an empty Raster Caster GeoPackage in the selected CRS "
             "(EPSG:28992 by default) and loads its layers into the project.\n\n"
             "Layers:\n\n"
-            "- surface (Polygon): the areas to cast. Set 'definition_type' to "
-            "'constant' or 'tin'. For 'constant', 'param_1' holds the elevation "
-            "value; for 'tin' the elevation is interpolated from the elevation "
-            "points inside the surface.\n"
+            "- surface (Polygon): the areas to cast. 'definition_type' is required "
+            "and must be 'constant' or 'tin'. For 'constant', 'param_1' holds the "
+            "elevation value; for 'tin' the elevation is interpolated from the "
+            "elevation points inside the surface.\n"
             "- elevation point (Point): supporting points for TIN surfaces. The "
-            "'elevation' attribute holds the height.\n\n"
+            "'elevation' attribute is required and holds the height.\n\n"
             "Fill these layers, then run 'Cast' to produce the raster."
         )
 
@@ -98,13 +98,13 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
                 f"Could not interpret the selected CRS: {crs.authid() or crs.toWkt()}"
             )
 
-        driver = ogr.GetDriverByName("GPKG")
-        ds = driver.CreateDataSource(output_path)
+        driver = gdal.GetDriverByName("GPKG")
+        ds = driver.Create(output_path, 0, 0, 0, gdal.GDT_Unknown)
 
         self.create_surface(ds, srs)
         self.create_el_point(ds, srs)
 
-        ds = None  # flush and close
+        ds.Close()  # flush and close
 
         style_files = {
             "surface": STYLING_DIR / "surface.qml",
@@ -140,19 +140,36 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         return {self.OUTPUT: output_path}
 
     @staticmethod
-    def create_surface(ds: ogr.DataSource, srs: osr.SpatialReference) -> None:
+    def create_surface(ds: gdal.Dataset, srs: osr.SpatialReference) -> None:
         lyr = ds.CreateLayer("surface", srs, ogr.wkbPolygon)
 
         fld = ogr.FieldDefn("definition", ogr.OFTString)
         fld.SetDefault("'NULL'")
         lyr.CreateField(fld)
-        lyr.CreateField(ogr.FieldDefn("definition_type", ogr.OFTString))
+
+        ds.AddFieldDomain(
+            ogr.CreateCodedFieldDomain(
+                "definition_type",
+                "How the surface elevation is defined",
+                ogr.OFTString,
+                ogr.OFSTNone,
+                {"constant": "Constant elevation", "tin": "TIN interpolation"},
+            )
+        )
+        fld = ogr.FieldDefn("definition_type", ogr.OFTString)
+        fld.SetNullable(False)
+        fld.SetDomainName("definition_type")
+        lyr.CreateField(fld)
+
         lyr.CreateField(ogr.FieldDefn("comment", ogr.OFTString))
         for i in range(1, 7):
             lyr.CreateField(ogr.FieldDefn(f"param_{i}", ogr.OFTReal))
 
     @staticmethod
-    def create_el_point(ds: ogr.DataSource, srs: osr.SpatialReference) -> None:
+    def create_el_point(ds: gdal.Dataset, srs: osr.SpatialReference) -> None:
         lyr = ds.CreateLayer("elevation_point", srs, ogr.wkbPoint)
         lyr.CreateField(ogr.FieldDefn("comment", ogr.OFTString))
-        lyr.CreateField(ogr.FieldDefn("elevation", ogr.OFTReal))
+
+        fld = ogr.FieldDefn("elevation", ogr.OFTReal)
+        fld.SetNullable(False)
+        lyr.CreateField(fld)

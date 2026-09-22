@@ -16,6 +16,7 @@ Raster Caster changelog
 - Added validation on input layers.
 - Elevation point layer is now a Point layer, not PointZ.
 - input files are now properly unlocked in case of validation errors.
+- Several fields are now no longer nullable (elevation, definition-type).
 
 
 0.2 (2026-09-21)
