@@ -1,7 +1,7 @@
 Raster Caster changelog
 ===============================
 
-0.3 (unreleased)
+0.3 (2026-09-22)
 ----------------
 
 - Added an optional progress callback to ``apply_tin`` that reports the
