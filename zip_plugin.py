@@ -5,8 +5,8 @@ import tempfile
 
 PLUGIN_DIRNAME = "raster_caster_plugin"
 INCLUDED_FILES = ("README.md", "metadata.txt", "LICENSE")
-INCLUDED_SUFFIXES = (".py", ".svg", ".png", ".ico")
-INCLUDED_DIRS = ("algorithms",)
+INCLUDED_SUFFIXES = (".py", ".svg", ".png", ".ico", ".qml")
+INCLUDED_DIRS = ("algorithms", "styling")
 
 
 def get_version(directory: str) -> str:
@@ -29,7 +29,9 @@ def copy_plugin_files(source_dir: str, target_dir: str) -> None:
                 shutil.copytree(
                     source,
                     os.path.join(target_dir, entry),
-                    ignore=shutil.ignore_patterns("__pycache__", "*.pyc"),
+                    ignore=shutil.ignore_patterns(
+                        "__pycache__", "*.pyc", "pytest_cache"
+                    ),
                 )
         elif entry in INCLUDED_FILES or entry.endswith(INCLUDED_SUFFIXES):
             shutil.copy2(source, os.path.join(target_dir, entry))
