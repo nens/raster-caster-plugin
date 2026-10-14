@@ -58,7 +58,7 @@ Build an installable plugin zip:
 python zip_plugin.py
 ```
 
-Use `fullrelease` to update the release notes etc, tag the commits and generate a new Github release.
+Use `fullrelease` to update the release notes etc, tag the commits and generate a new Github release. Note that you'll need the qgis plugin for `zest.releaser` (https://github.com/nens/qgispluginreleaser).
 
 ```bash
 fullrelease
