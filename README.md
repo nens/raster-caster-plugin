@@ -11,7 +11,7 @@ algorithms.
 ### 1. Begin new
 
 Creates an empty GeoPackage in the CRS of your choice (EPSG:28992 by default) and
-loads its two layers into the project:
+loads its layers into the project:
 
 - **surface** (Polygon): the areas to cast.
   - `definition_type = 'constant'`: `param_1` holds the elevation value.
@@ -20,6 +20,9 @@ loads its two layers into the project:
 - **elevation point** (Point): supporting points for TIN surfaces. The `elevation`
   attribute is used to define height. Set `in_polygon_only` to true to restrict a
   point to the surfaces it actually lies inside.
+- **settings** (non-spatial table): `variable` / `value` pairs used by *Cast*. It is
+  filled with `pixel_size` = 0.5 and `elevation_point_search_radius` = 0.1; edit
+  these values to change the casting behaviour.
 
 ### 2. Cast
 
@@ -30,11 +33,13 @@ contain.
 - **Surface layer**: polygons with the `definition_type` and `param_1` fields, as
   created by *Begin new*.
 - **Elevation point layer**: points with an `elevation` and `in_polygon_only` field.
+- **Settings layer**: the non-spatial `settings` table with `variable` and `value`
+  fields, holding:
+  - `pixel_size`: output resolution, required when no input raster is given.
+  - `elevation_point_search_radius`: search buffer around a TIN surface for
+    elevation points that lie just outside it. Points with `in_polygon_only` set
+    are not picked up by this buffer.
 - **Input Raster**: optional; its extent and pixel size are used for the output. Surfaces are cast onto this raster.
-- **Pixel Size**: output resolution, required when no input raster is given.
-- **Snapping distance**: search buffer around a TIN surface for elevation points
-  that lie just outside it. Points with `in_polygon_only` set are not picked up by
-  this buffer.
 
 Without an input raster, the output extent follows the extent of the surface layer.
 
