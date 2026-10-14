@@ -12,7 +12,6 @@ from qgis.core import (
     QgsProcessingException,
     QgsProcessingFeedback,
     QgsProcessingLayerPostProcessorInterface,
-    QgsProcessingParameterNumber,
     QgsProcessingParameterRasterDestination,
     QgsProcessingParameterRasterLayer,
     QgsProcessingParameterVectorLayer,
@@ -25,6 +24,10 @@ from .casting import apply_constant, apply_tin
 
 ICON_PATH = Path(__file__).parent.parent / "icon.svg"
 STYLE_PATH = Path(__file__).parent.parent / "styling" / "output.qml"
+
+
+PIXEL_SIZE_VARIABLE = "pixel_size"
+SEARCH_RADIUS_VARIABLE = "elevation_point_search_radius"
 
 
 def single_layer_id(geometry_type: Qgis.GeometryType) -> str | None:
@@ -62,9 +65,8 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
 
     INPUT_SURFACE = "INPUT_SURFACE"
     INPUT_ELEVATION_POINTS = "INPUT_ELEVATION_POINTS"
+    INPUT_SETTINGS = "INPUT_SETTINGS"
     INPUT_RASTER = "INPUT_RASTER"
-    PIXEL_SIZE = "PIXEL_SIZE"
-    SNAPPING_DISTANCE = "SNAPPING_DISTANCE"
     OUTPUT = "OUTPUT"
 
     def name(self) -> str:
@@ -87,11 +89,13 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             "- Surface layer: polygons with the 'definition_type' and 'param_1' "
             "fields, as created by 'Begin new'.\n"
             "- Elevation point layer: points with an 'elevation' field.\n"
-            "- Input Raster: optional; optional; its extent and pixel size are used"
-            " for the output. Surfaces are cast onto this raster.\n"
-            "- Pixel Size: output resolution, required when no input raster is given.\n"
-            "- Snapping distance: search buffer around a TIN surface for elevation "
-            "points that lie just outside it."
+            "- Settings layer: the non-spatial 'settings' table with 'variable' and "
+            f"'value' fields, holding '{PIXEL_SIZE_VARIABLE}' (output resolution, "
+            "used when no input raster is given) and "
+            f"'{SEARCH_RADIUS_VARIABLE}' (search buffer around a TIN surface for "
+            "elevation points that lie just outside it).\n"
+            "- Input Raster: optional; its extent and pixel size are used"
+            " for the output. Surfaces are cast onto this raster."
         )
 
     def createInstance(self) -> "CastRasterAlgorithm":
@@ -115,29 +119,18 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             )
         )
         self.addParameter(
+            QgsProcessingParameterVectorLayer(
+                self.INPUT_SETTINGS,
+                "Settings layer",
+                types=[QgsProcessing.SourceType.TypeVector],
+                defaultValue=single_layer_id(Qgis.GeometryType.Null),
+            )
+        )
+        self.addParameter(
             QgsProcessingParameterRasterLayer(
                 self.INPUT_RASTER,
                 "Input Raster",
                 optional=True,
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                self.PIXEL_SIZE,
-                "Pixel Size",
-                type=QgsProcessingParameterNumber.Type.Double,
-                optional=True,
-                minValue=0.0,
-                defaultValue=0.5,
-            )
-        )
-        self.addParameter(
-            QgsProcessingParameterNumber(
-                self.SNAPPING_DISTANCE,
-                "Snapping distance",
-                type=QgsProcessingParameterNumber.Type.Double,
-                minValue=0.0,
-                defaultValue=3.0,
             )
         )
         self.addParameter(
@@ -147,16 +140,28 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             )
         )
 
-    def checkParameterValues(
-        self,
-        parameters: dict[str, Any],
-        context: QgsProcessingContext,
-    ) -> Any:
-        raster = self.parameterAsRasterLayer(parameters, self.INPUT_RASTER, context)
-        pixel_size = self.parameterAsDouble(parameters, self.PIXEL_SIZE, context)
-        if raster is None and (self.PIXEL_SIZE not in parameters or pixel_size <= 0):
-            return False, "Pixel Size is required when no Input Raster is provided."
-        return super().checkParameterValues(parameters, context)
+    @staticmethod
+    def readSettings(layer: QgsVectorLayer) -> dict[str, float]:
+        fields = layer.fields()
+        for field_name in ("variable", "value"):
+            if fields.indexFromName(field_name) < 0:
+                raise QgsProcessingException(
+                    f"The settings layer has no '{field_name}' field."
+                )
+
+        settings = {}
+        for feature in layer.getFeatures():
+            variable = feature["variable"]
+            value = feature["value"]
+            if variable is None or value is None:
+                continue
+            try:
+                settings[str(variable)] = float(value)
+            except (TypeError, ValueError):
+                raise QgsProcessingException(
+                    f"Setting '{variable}' has a non-numeric value: {value!r}."
+                )
+        return settings
 
     @staticmethod
     def validateLayers(surface_layer: Any, point_layer: Any) -> None:
@@ -204,9 +209,16 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
     ) -> dict[str, str]:
         raster = self.parameterAsRasterLayer(parameters, self.INPUT_RASTER, context)
         output_path = self.parameterAsOutputLayer(parameters, self.OUTPUT, context)
-        snapping_distance = self.parameterAsDouble(
-            parameters, self.SNAPPING_DISTANCE, context
+        settings_layer = self.parameterAsVectorLayer(
+            parameters, self.INPUT_SETTINGS, context
         )
+        settings = self.readSettings(settings_layer)
+
+        if SEARCH_RADIUS_VARIABLE not in settings:
+            raise QgsProcessingException(
+                f"The settings layer has no '{SEARCH_RADIUS_VARIABLE}' entry."
+            )
+        snapping_distance = settings[SEARCH_RADIUS_VARIABLE]
 
         # Writes a temporary GeoPackage (if needed) for sources GDAL cannot
         # read directly
@@ -255,9 +267,12 @@ class CastRasterAlgorithm(QgsProcessingAlgorithm):
             if raster is not None:
                 pixel_size = raster.rasterUnitsPerPixelX()
             else:
-                pixel_size = self.parameterAsDouble(
-                    parameters, self.PIXEL_SIZE, context
-                )
+                pixel_size = settings.get(PIXEL_SIZE_VARIABLE, 0.0)
+                if pixel_size <= 0:
+                    raise QgsProcessingException(
+                        f"The settings layer needs a positive '{PIXEL_SIZE_VARIABLE}' "
+                        "entry when no Input Raster is provided."
+                    )
 
             extent = surface_layer.GetExtent()  # (minX, maxX, minY, maxY)
             srs = surface_layer.GetSpatialRef()

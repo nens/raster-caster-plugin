@@ -26,6 +26,7 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
     Tables created:
         surface          – Polygon
         elevation_point  – Point
+        settings         – non-spatial
     """
 
     CRS = "CRS"
@@ -50,7 +51,9 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             "elevation value; for 'tin' the elevation is interpolated from the "
             "elevation points inside the surface.\n"
             "- elevation point (Point): supporting points for TIN surfaces. The "
-            "'elevation' attribute is required and holds the height.\n\n"
+            "'elevation' attribute is required and holds the height.\n"
+            "- settings (table): 'variable'/'value' pairs with the casting "
+            "defaults.\n\n"
             "Fill these layers, then run 'Cast' to produce the raster."
         )
 
@@ -118,12 +121,14 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
 
         self.create_surface(ds, srs)
         self.create_el_point(ds, srs)
+        self.create_settings(ds)
 
         ds.Close()  # flush and close
 
         style_files = {
             "surface": STYLING_DIR / "surface.qml",
             "elevation_point": STYLING_DIR / "elevation_point.qml",
+            "settings": None,
         }
         if destination_project is not None:
             # drop the single layer the framework registered for the GeoPackage path
@@ -135,13 +140,14 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             display_name = name.replace("_", " ")
             uri = f"{output_path}|layername={name}"
             layer = QgsVectorLayer(uri, display_name, "ogr")
-            layer.loadNamedStyle(str(style_path))
-            # persist the style in the GeoPackage's layer_styles table
-            error_message = layer.saveStyleToDatabase(name, "", True, "")
-            if error_message:
-                feedback.reportError(
-                    f"Failed to save style for layer '{name}': {error_message}"
-                )
+            if style_path is not None:
+                layer.loadNamedStyle(str(style_path))
+                # persist the style in the GeoPackage's layer_styles table
+                error_message = layer.saveStyleToDatabase(name, "", True, "")
+                if error_message:
+                    feedback.reportError(
+                        f"Failed to save style for layer '{name}': {error_message}"
+                    )
             if destination_project is None:
                 continue
             context.temporaryLayerStore().addMapLayer(layer)
@@ -194,3 +200,22 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         fld.SetNullable(False)
         fld.SetDefault("False")
         lyr.CreateField(fld)
+
+    @staticmethod
+    def create_settings(ds: gdal.Dataset) -> None:
+        lyr = ds.CreateLayer("settings", None, ogr.wkbNone)
+
+        fld = ogr.FieldDefn("variable", ogr.OFTString)
+        fld.SetNullable(False)
+        lyr.CreateField(fld)
+
+        fld = ogr.FieldDefn("value", ogr.OFTReal)
+        fld.SetNullable(False)
+        lyr.CreateField(fld)
+
+        defaults = {"pixel_size": 0.5, "elevation_point_search_radius": 0.1}
+        for variable, value in defaults.items():
+            feature = ogr.Feature(lyr.GetLayerDefn())
+            feature.SetField("variable", variable)
+            feature.SetField("value", value)
+            lyr.CreateFeature(feature)

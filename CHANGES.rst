@@ -1,6 +1,11 @@
 Raster Caster changelog
 ===============================
 
+0.4 (unreleased)
+
+- Settings (pixel_size and elevation_point_search_radius) are now retrieved from settings table.
+- Fixed issue in zipping of plugin: styles are now addded as well.
+
 0.3 (2026-09-22)
 ----------------
 
