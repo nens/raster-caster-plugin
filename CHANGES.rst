@@ -1,6 +1,12 @@
 Raster Caster changelog
 ===============================
 
+0.5 (unreleased)
+----------------
+
+- Nothing changed yet.
+
+
 0.4 (2026-10-14)
 
 - Settings (pixel_size and elevation_point_search_radius) are now retrieved from settings table.
