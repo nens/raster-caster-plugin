@@ -57,3 +57,9 @@ Build an installable plugin zip:
 ```bash
 python zip_plugin.py
 ```
+
+Use `fullrelease` to update the release notes etc, tag the commits and generate a new Github release.
+
+```bash
+fullrelease
+```
