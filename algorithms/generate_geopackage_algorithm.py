@@ -178,7 +178,6 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
             )
         )
         fld = ogr.FieldDefn("definition_type", ogr.OFTString)
-        fld.SetNullable(False)
         fld.SetDomainName("definition_type")
         lyr.CreateField(fld)
 
@@ -192,12 +191,10 @@ class GenerateGeopackageAlgorithm(QgsProcessingAlgorithm):
         lyr.CreateField(ogr.FieldDefn("comment", ogr.OFTString))
 
         fld = ogr.FieldDefn("elevation", ogr.OFTReal)
-        fld.SetNullable(False)
         lyr.CreateField(fld)
 
         fld = ogr.FieldDefn("in_polygon_only", ogr.OFTInteger)
         fld.SetSubType(ogr.OFSTBoolean)
-        fld.SetNullable(False)
         fld.SetDefault("False")
         lyr.CreateField(fld)
 

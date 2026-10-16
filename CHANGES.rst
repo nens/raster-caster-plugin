@@ -4,7 +4,7 @@ Raster Caster changelog
 0.5 (unreleased)
 ----------------
 
-- Nothing changed yet.
+- Fields are nullable again.
 
 
 0.4 (2026-10-14)

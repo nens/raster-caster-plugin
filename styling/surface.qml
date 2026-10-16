@@ -273,7 +273,7 @@
   <constraints>
     <constraint constraints="3" exp_strength="0" field="fid" notnull_strength="1" unique_strength="1"/>
     <constraint constraints="0" exp_strength="0" field="definition" notnull_strength="0" unique_strength="0"/>
-    <constraint constraints="1" exp_strength="0" field="definition_type" notnull_strength="1" unique_strength="0"/>
+    <constraint constraints="0" exp_strength="0" field="definition_type" notnull_strength="0" unique_strength="0"/>
     <constraint constraints="0" exp_strength="0" field="comment" notnull_strength="0" unique_strength="0"/>
     <constraint constraints="0" exp_strength="0" field="param_1" notnull_strength="0" unique_strength="0"/>
     <constraint constraints="0" exp_strength="0" field="param_2" notnull_strength="0" unique_strength="0"/>
