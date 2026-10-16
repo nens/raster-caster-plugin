@@ -1,7 +1,7 @@
 Raster Caster changelog
 ===============================
 
-0.5 (unreleased)
+0.5 (2026-10-16)
 ----------------
 
 - Fields are nullable again.
