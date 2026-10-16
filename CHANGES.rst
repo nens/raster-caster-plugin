@@ -1,6 +1,12 @@
 Raster Caster changelog
 ===============================
 
+0.6 (unreleased)
+----------------
+
+- Nothing changed yet.
+
+
 0.5 (2026-10-16)
 ----------------
 
