@@ -1,4 +1,4 @@
-FROM qgis/qgis:4.2
+FROM qgis/qgis:4.2.2
 
 # COPY requirements-dev.txt /root
 # RUN pip3 install -r /root/requirements-dev.txt
