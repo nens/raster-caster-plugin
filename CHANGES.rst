@@ -1,6 +1,12 @@
 Raster Caster changelog
 ===============================
 
+2.1 (unreleased)
+----------------
+
+- Nothing changed yet.
+
+
 2.0 (2026-10-28)
 ----------------
 
