@@ -8,6 +8,8 @@ The polygons can be seen as ‘molds’, that are used to ‘cast’ the elevati
 
 The RasterCaster can be used as a QGIS plugin. All vector data and settings are stored in a GeoPackage. 
 
+_Note: this is a re-implementation (v 2.0) of https://github.com/nens/rastercaster, which was PostGIS-based._ 
+
 ## Requirements
 QGIS >= 4.2.2
 
