@@ -1,9 +1,23 @@
-# Raster Caster
+# RasterCaster
+**Make DEMs and other rasters from polygons with a specific gradient definition for each polygon.**
 
-A QGIS plugin that casts elevation values onto a raster using surface polygons and
-elevation points stored in a GeoPackage.
+## Introduction
+The RasterCaster allows the user to create digital elevation models (GeoTIFF) from vector data (points, lines and polygons). Elevation is a continous variable and therefore better represented by a raster than polygons or other vector formats. However, raster data is much harder to edit than vector data. RasterCaster bridges this gap. The user makes a set of polygons that cover the area of interest and do not overlap. The polygons may be hand-drawn directly into GIS, but can also be derived from landscape desings (usually CAD drawings). 
 
-## Usage
+The polygons can be seen as ‘molds’, that are used to ‘cast’ the elevation map into. Each polygon contains a definition of the altitude variations within it. Simple elevation profiles (e.g. flat building footprints) can be cast using a simple definition, while at the same time the RasterCaster offers the user flexibility to add more complex shapes (e.g. the exact shape of a retention basin). Currently, molds can be defined in four different way - see under Definition Types.
+
+The RasterCaster can be used as a QGIS plugin. All vector data and settings are stored in a GeoPackage. 
+
+## Requirements
+QGIS >= 4.2.2
+
+## Installation
+- Go to https://github.com/nens/raster-caster-plugin/releases.
+- Under _Assets_ in the most recent release, download the .zip.
+- Open QGIS 4.2.2 or higher.
+- Go to Plugins > Manage and Install Plugins > Install From ZIP > Browse to the downloaded zip > Install Plugin.
+
+## User manual
 
 The plugin adds a **Raster Caster** provider to the Processing Toolbox with two
 algorithms.
